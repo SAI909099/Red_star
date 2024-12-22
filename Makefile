@@ -5,3 +5,5 @@ mig:
 user:
 	python3 manage.py createsuperuser
 
+celery:
+	celery -A root worker --loglevel=info
