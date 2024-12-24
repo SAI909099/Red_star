@@ -1,4 +1,4 @@
-
+from os.path import join
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -39,7 +39,7 @@ AUTH_USER_MODEL = 'apps.User'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates']
+        'DIRS': [BASE_DIR / 'apps/templates']
         ,
         'APP_DIRS': True,
         'OPTIONS': {
@@ -100,7 +100,10 @@ USE_TZ = True
 
 
 STATIC_URL = 'static/'
+STATIC_ROOT = join(BASE_DIR / 'static')
 
+MEDIA_URL = 'media/'
+MEDIA_ROOT = join(BASE_DIR / 'media')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 

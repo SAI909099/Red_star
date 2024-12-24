@@ -6,7 +6,7 @@ from django.shortcuts import render
 from django.utils.http import urlsafe_base64_decode
 from drf_spectacular.utils import extend_schema
 from rest_framework import status
-from rest_framework.generics import ListAPIView, ListCreateAPIView, GenericAPIView
+from rest_framework.generics import ListAPIView, ListCreateAPIView, GenericAPIView, DestroyAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
 from rest_framework.viewsets import ModelViewSet
@@ -102,23 +102,65 @@ class ActivateUserView(APIView):
             user.save()
             return Response({"message": "User successfully verified!"})
         raise AuthenticationFailed('The link is invalid or expired.')
-
-class AppointmentViewSet(ModelViewSet):
+@extend_schema(tags=['Appointment'])
+class AppointmentAPIView(ListCreateAPIView):
     queryset = Appointments.objects.all()
     serializer_class = AppointmentSerializer
 
-class HealthViewSet(ModelViewSet):
+@extend_schema(tags=['Health'])
+class HealthAPIView(ListCreateAPIView):
     queryset = Health.objects.all()
     serializer_class = HealthSerializer
-
-class MedicalTechnologyViewSet(ModelViewSet):
+@extend_schema(tags=['Medical Technology'])
+class MedicalTechnologyAPIView(ListCreateAPIView):
     queryset = MedicalTechnology.objects.all()
     serializer_class = MedicalTechnologySerializer
-
-class TechnologyAppointmentViewSet(ModelViewSet):
+@extend_schema(tags=['Technology'])
+class TechnologyAppointmentAPIView(ListCreateAPIView):
     queryset = TechnologyAppointment.objects.all()
     serializer_class = TechnologyAppointmentSerializer
-
-class RoomViewSet(ModelViewSet):
+@extend_schema(tags=['Rooms'])
+class RoomAPIView(ListCreateAPIView):
     queryset = Room.objects.all()
     serializer_class = RoomSerializer
+
+@extend_schema(tags=['User'])
+class UserDestroyAPIView(DestroyAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserModelSerializer
+    lookup_field = 'id'  # You can customize the lookup field as per your requirement
+
+# Destroy API for Appointments
+@extend_schema(tags=['Appointment'])
+class AppointmentDestroyAPIView(DestroyAPIView):
+    queryset = Appointments.objects.all()
+    serializer_class = AppointmentSerializer
+    lookup_field = 'id'
+
+# Destroy API for Health
+@extend_schema(tags=['Health'])
+class HealthDestroyAPIView(DestroyAPIView):
+    queryset = Health.objects.all()
+    serializer_class = HealthSerializer
+    lookup_field = 'id'
+
+# Destroy API for Medical Technology
+@extend_schema(tags=['Medical Technology'])
+class MedicalTechnologyDestroyAPIView(DestroyAPIView):
+    queryset = MedicalTechnology.objects.all()
+    serializer_class = MedicalTechnologySerializer
+    lookup_field = 'id'
+
+# Destroy API for Technology Appointment
+@extend_schema(tags=['Technology'])
+class TechnologyAppointmentDestroyAPIView(DestroyAPIView):
+    queryset = TechnologyAppointment.objects.all()
+    serializer_class = TechnologyAppointmentSerializer
+    lookup_field = 'id'
+
+# Destroy API for Rooms
+@extend_schema(tags=['Rooms'])
+class RoomDestroyAPIView(DestroyAPIView):
+    queryset = Room.objects.all()
+    serializer_class = RoomSerializer
+    lookup_field = 'id'

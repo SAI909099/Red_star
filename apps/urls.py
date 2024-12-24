@@ -1,17 +1,10 @@
-from django.contrib import admin
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+from django.urls import path
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
-from apps.views import UserListAPIView,AppointmentViewSet, RegisterAPIView, VerifyEmailAPIView, LoginAPIView, HealthViewSet, \
-    MedicalTechnologyViewSet, TechnologyAppointmentViewSet, RoomViewSet
-
-router = DefaultRouter()
-router.register('appointments', AppointmentViewSet, basename='appointments')
-router.register('health', HealthViewSet, basename='health')
-router.register('medical-technology', MedicalTechnologyViewSet, basename='medical-technology')
-router.register('technology-appointments', TechnologyAppointmentViewSet, basename='technology-appointments')
-router.register('rooms', RoomViewSet, basename='rooms')
+from apps.views import UserListAPIView, RegisterAPIView, VerifyEmailAPIView, LoginAPIView, \
+    HealthAPIView, MedicalTechnologyAPIView, TechnologyAppointmentAPIView, RoomAPIView, \
+    UserDestroyAPIView, HealthDestroyAPIView, MedicalTechnologyDestroyAPIView, TechnologyAppointmentDestroyAPIView, \
+    RoomDestroyAPIView, AppointmentAPIView, AppointmentDestroyAPIView
 
 urlpatterns = [
     path('User',UserListAPIView.as_view(), name = 'User'),
@@ -22,6 +15,23 @@ urlpatterns = [
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
-    path('api/', include(router.urls)),
+
+
+    path('appoitment', AppointmentAPIView.as_view()),
+    # path('appoitment-destroy', AppointmentDestroyAPIView.as_view()),
+    path('health', HealthAPIView.as_view()),
+    path('medical-technology', MedicalTechnologyAPIView.as_view()),
+    path('technology-appoitment', TechnologyAppointmentAPIView.as_view()),
+    path('room', RoomAPIView.as_view()),
+    path('users/<int:id>/delete/', UserDestroyAPIView.as_view(), name='user-destroy'),
+    path('appointments/<int:id>/delete/', AppointmentDestroyAPIView.as_view(), name='appointment-destroy'),
+    path('health/<int:id>/delete/', HealthDestroyAPIView.as_view(), name='health-destroy'),
+    path('medical-technology/<int:id>/delete/', MedicalTechnologyDestroyAPIView.as_view(),
+         name='medical-technology-destroy'),
+    path('technology-appointment/<int:id>/delete/', TechnologyAppointmentDestroyAPIView.as_view(),
+         name='technology-appointment-destroy'),
+    path('rooms/<int:id>/delete/', RoomDestroyAPIView.as_view(), name='room-destroy'),
+
+
 ]
 

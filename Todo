@@ -1,4 +1,411 @@
-duxtirlarga ocheret va duxtir1larga ko'rinish kera
-duxtirlar o'zi ochered olishi kere uzi mrt va shunga o'xshsh
-yotog' da nechta odam borligi va yotoq kuni
+I hsve this models,serializers and views can you help me for create simple template white blue temp
+import datetime
+
+from django.contrib.auth.models import AbstractUser
+from django.db import models
+from django.db.models import BooleanField, CharField, DateField, Model, IntegerField, ForeignKey, CASCADE, EmailField, \
+    FileField, SET_NULL
+from django.db.models.fields import DateTimeField, DecimalField, TimeField
+from django.utils.timezone import now
+
+from apps.manager import CustomUserManager
+
+class User(AbstractUser):
+    username = None
+    first_name = CharField(max_length=100)
+    last_name = CharField(max_length=100)
+    date_of_birth = DateField(null=True, blank=True)
+    phone_number = CharField(max_length=15,null=True , blank=True)
+    address = CharField(max_length=250, blank=True, null=True)
+    email = EmailField(unique=True)
+    is_active = BooleanField(default=False)
+    reset_token = CharField(max_length=64, null=True, blank=True)
+
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = []
+
+    objects = CustomUserManager()
+
+
+class Appointments(Model):
+    STATUS_CHOICES = [
+        ('band qilingan', 'Band qilingan'),
+        ('tugallangan', 'Tugallangan'),
+        ('bekorqilingan', 'Bekorqilingan'),
+    ]
+
+    user = ForeignKey(User, on_delete=CASCADE)
+    date = DateTimeField(auto_now_add=True)
+    status = CharField(max_length=20, choices=STATUS_CHOICES, default='band qilingan')
+    payment_status = BooleanField(default=False)
+    payment_method = CharField(max_length=50, blank=True, null=True)
+    payment_amount = DecimalField(max_digits=10, decimal_places=2, blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.user.email} - {self.status} - {self.date}"
+
+class Health(Model):
+    user = ForeignKey(User , CASCADE)
+    file = FileField(blank=True, null=True)
+    Description = CharField(max_length=1000)
+    date_added = DateTimeField(auto_now=True)
+
+
+class MedicalTechnology(Model):
+    name = CharField(max_length=100)
+    availability_start = TimeField(default=now)
+    availability_end = TimeField(default=now)
+    is_available = BooleanField(default=True)
+
+class TechnologyAppointment(Model):
+    user = ForeignKey(User, on_delete=CASCADE)
+    technology = ForeignKey(MedicalTechnology, on_delete=CASCADE)
+    appointment_date = DateField(default=now)
+    appointment_time = TimeField(default=now)
+    status = CharField(max_length=20, choices=[('band qilingan', 'Band qilingan'), ('Tugallangan', 'Tugallangan')])
+
+class Room(Model):
+    room_number = CharField(max_length=10, unique=True)
+    is_occupied = BooleanField(default=False)
+    patient = ForeignKey(User, null=True, blank=True, on_delete=SET_NULL)
+    check_in_date = DateField(null=True, blank=True)
+    check_out_date = DateField(null=True, blank=True)
+
+    def days_occupied(self):
+        if self.is_occupied and self.check_in_date:
+            return (datetime.date.today() - self.check_in_date).days
+        return 0
+
+serializers
+
+from datetime import timedelta
+from urllib.parse import urlparse
+
+import redis
+from django.contrib.auth import authenticate
+from rest_framework.exceptions import ValidationError
+from rest_framework.fields import CharField, EmailField
+from rest_framework.serializers import ModelSerializer, Serializer
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+from apps.models import User
+from root import settings
+
+redis_url = urlparse(settings.CELERY_BROKER_URL)
+r = redis.StrictRedis(host=redis_url.hostname, port=redis_url.port, db=int(redis_url.path.lstrip('/')))
+
+
+class UserModelSerializer(ModelSerializer):
+
+    class Meta:
+        model = User
+        exclude = ()
+
+class RegisterSerializer(ModelSerializer):
+    password = CharField(write_only=True)
+    confirm_password = CharField(write_only=True)
+
+    class Meta:
+        model = User
+        fields = ['first_name', 'last_name', 'date_of_birth', 'phone_number', 'email', 'password', 'confirm_password']
+
+    def validate(self, data):
+        if data['password'] != data['confirm_password']:
+            raise ValidationError("Passwords do not match")
+        return data
+
+    def create(self, validated_data):
+        validated_data.pop('confirm_password')
+        user = User.objects.create_user(**validated_data)
+        return user
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        token['email'] = user.email
+        return token
+
+
+
+class LoginUserModelSerializer(Serializer):
+    email = EmailField()
+    password = CharField(write_only=True)
+
+    def validate(self, attrs):
+        email = attrs.get('email')
+        password = attrs.get('password')
+
+        redis_key = f'failed_attempts_{email}'
+        attempts = r.get(redis_key)
+        if attempts and int(attempts) >= 5:
+            raise ValidationError("Too many failed login attempts. Try again after 5 minutes.")
+
+        user = authenticate(email=email, password=password)
+
+        if user is None:
+            current_attempts = int(attempts) if attempts else 0
+            r.setex(redis_key, timedelta(minutes=5), current_attempts + 1)
+            raise ValidationError("Invalid email or password")
+
+        r.delete(redis_key)
+        attrs['user'] = user
+        return attrs
+
+
+class LoginSerializer(Serializer):
+    email = EmailField()
+    verification_code = CharField(write_only=True)
+
+from rest_framework import serializers, viewsets
+from rest_framework.routers import DefaultRouter
+from django.urls import path, include
+from .models import User, Appointments, Health, MedicalTechnology, TechnologyAppointment, Room
+
+# Seriali
+class AppointmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Appointments
+        fields = '__all__'
+
+class HealthSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Health
+        fields = '__all__'
+
+class MedicalTechnologySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MedicalTechnology
+        fields = '__all__'
+
+class TechnologyAppointmentSerializer(serializers.ModelSerializer):
+    def validate(self, data):
+        # Check if the time slot is already booked
+        if TechnologyAppointment.objects.filter(
+            technology=data['technology'],
+            appointment_date=data['appointment_date'],
+            appointment_time=data['appointment_time']
+        ).exists():
+            raise serializers.ValidationError("This time slot is already booked.")
+        return data
+
+    class Meta:
+        model = TechnologyAppointment
+        fields = '__all__'
+
+class RoomSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Room
+        fields = '__all__'
+
+views
+
+import random
+import string
+
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.shortcuts import render
+from django.utils.http import urlsafe_base64_decode
+from drf_spectacular.utils import extend_schema
+from rest_framework import status
+from rest_framework.generics import ListAPIView, ListCreateAPIView, GenericAPIView, DestroyAPIView
+from rest_framework.permissions import AllowAny
+from rest_framework.views import APIView
+from rest_framework.viewsets import ModelViewSet
+from rest_framework_simplejwt.exceptions import AuthenticationFailed
+from rest_framework_simplejwt.tokens import RefreshToken
+
+from apps.models import User, Appointments, Health, MedicalTechnology, TechnologyAppointment, Room
+from apps.serializers import UserModelSerializer, RegisterSerializer, LoginUserModelSerializer, LoginSerializer, \
+    AppointmentSerializer, HealthSerializer, MedicalTechnologySerializer, TechnologyAppointmentSerializer, \
+    RoomSerializer
+from apps.tasks import send_verification_email
+
+
+@extend_schema(tags=['User'])
+class UserListAPIView(ListAPIView):
+    serializer_class = UserModelSerializer
+    queryset = User.objects.all()
+
+@extend_schema(tags=['Login-Register'])
+class RegisterAPIView(APIView):
+    serializer_class = RegisterSerializer
+    # permission_classes = (AllowAny,)
+
+    # Register a new user
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+
+            # Generate a random 6-digit verification code
+            verification_code = ''.join(random.choices(string.digits, k=6))
+            user.reset_token = verification_code
+            user.save()
+
+            # Send the email asynchronously with Celery
+            send_verification_email.delay(user.email, verification_code)
+
+            return Response({"message": "User registered successfully. Check your email for the verification code."}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+from rest_framework.response import Response
+@extend_schema(tags=['Login-Register'])
+class VerifyEmailAPIView(APIView):
+    serializer_class = LoginSerializer
+
+    def post(self, request):
+        # print("Request data:", request.data)  # Debugging the incoming data
+        email = request.data.get('email')
+        verification_code = request.data.get('verification_code') or request.data.get('password')  # Temporary fix
+
+        # print("Request data:", request.data)  # This should now include 'verification_code'
+        # print("Verification Code:", request.data.get('verification_code'))
+
+        if not email or not verification_code:
+            return Response({"error": "Email and verification code are required."}, status=400)
+
+        try:
+            user = User.objects.get(email=email, reset_token=verification_code)
+            user.is_active = True
+            user.reset_token = ''
+            user.save()
+            return Response({"message": "Email verified successfully."}, status=200)
+        except User.DoesNotExist:
+            return Response({"error": "Invalid email or verification code."}, status=400)
+@extend_schema(tags=['Login-Register'])
+class LoginAPIView(GenericAPIView):
+    serializer_class = LoginUserModelSerializer
+    permission_classes = [AllowAny]
+    authentication_classes = ()
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.validated_data['user']
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+        }, status=status.HTTP_200_OK)
+
+@extend_schema(tags=['Access-Token'])
+class ActivateUserView(APIView):
+    def get(self, request, uidb64, token):
+        try:
+            uid = urlsafe_base64_decode(uidb64).decode()
+            uid, is_active = uid.split('/')
+            user = User.objects.get(pk=uid, is_active=is_active)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            user = None
+
+        if user and PasswordResetTokenGenerator().check_token(user, token):
+            user.is_active = True
+            user.save()
+            return Response({"message": "User successfully verified!"})
+        raise AuthenticationFailed('The link is invalid or expired.')
+@extend_schema(tags=['Appointment'])
+class AppointmentAPIView(ListCreateAPIView):
+    queryset = Appointments.objects.all()
+    serializer_class = AppointmentSerializer
+
+@extend_schema(tags=['Health'])
+class HealthAPIView(ListCreateAPIView):
+    queryset = Health.objects.all()
+    serializer_class = HealthSerializer
+@extend_schema(tags=['Medical Technology'])
+class MedicalTechnologyAPIView(ListCreateAPIView):
+    queryset = MedicalTechnology.objects.all()
+    serializer_class = MedicalTechnologySerializer
+@extend_schema(tags=['Technology'])
+class TechnologyAppointmentAPIView(ListCreateAPIView):
+    queryset = TechnologyAppointment.objects.all()
+    serializer_class = TechnologyAppointmentSerializer
+@extend_schema(tags=['Rooms'])
+class RoomAPIView(ListCreateAPIView):
+    queryset = Room.objects.all()
+    serializer_class = RoomSerializer
+
+@extend_schema(tags=['User'])
+class UserDestroyAPIView(DestroyAPIView):
+    queryset = User.objects.all()
+    serializer_class = UserModelSerializer
+    lookup_field = 'id'  # You can customize the lookup field as per your requirement
+
+# Destroy API for Appointments
+@extend_schema(tags=['Appointment'])
+class AppointmentDestroyAPIView(DestroyAPIView):
+    queryset = Appointments.objects.all()
+    serializer_class = AppointmentSerializer
+    lookup_field = 'id'
+
+# Destroy API for Health
+@extend_schema(tags=['Health'])
+class HealthDestroyAPIView(DestroyAPIView):
+    queryset = Health.objects.all()
+    serializer_class = HealthSerializer
+    lookup_field = 'id'
+
+# Destroy API for Medical Technology
+@extend_schema(tags=['Medical Technology'])
+class MedicalTechnologyDestroyAPIView(DestroyAPIView):
+    queryset = MedicalTechnology.objects.all()
+    serializer_class = MedicalTechnologySerializer
+    lookup_field = 'id'
+
+# Destroy API for Technology Appointment
+@extend_schema(tags=['Technology'])
+class TechnologyAppointmentDestroyAPIView(DestroyAPIView):
+    queryset = TechnologyAppointment.objects.all()
+    serializer_class = TechnologyAppointmentSerializer
+    lookup_field = 'id'
+
+# Destroy API for Rooms
+@extend_schema(tags=['Rooms'])
+class RoomDestroyAPIView(DestroyAPIView):
+    queryset = Room.objects.all()
+    serializer_class = RoomSerializer
+    lookup_field = 'id'
+
+urls
+
+from django.shortcuts import render
+from django.urls import path, include
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+
+from apps.views import UserListAPIView, RegisterAPIView, VerifyEmailAPIView, LoginAPIView, AppointmentAPIView, \
+    HealthAPIView, MedicalTechnologyAPIView, TechnologyAppointmentAPIView, RoomAPIView, AppointmentDestroyAPIView, \
+    UserDestroyAPIView, HealthDestroyAPIView, MedicalTechnologyDestroyAPIView, TechnologyAppointmentDestroyAPIView, \
+    RoomDestroyAPIView
+
+
+def frontend(request):
+    return render(request, 'index.html')
+urlpatterns = [
+    path('User',UserListAPIView.as_view(), name = 'User'),
+    path('register',RegisterAPIView.as_view(), name = 'login-register'),
+    path('verify-email/', VerifyEmailAPIView.as_view(), name='verify-email'),
+    path('login/', LoginAPIView.as_view(), name='login'),
+
+    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+
+    path('appoitment', AppointmentAPIView.as_view()),
+    path('appoitment-destroy', AppointmentDestroyAPIView.as_view()),
+    path('health', HealthAPIView.as_view()),
+    path('medical-technology', MedicalTechnologyAPIView.as_view()),
+    path('technology-appoitment', TechnologyAppointmentAPIView.as_view()),
+    path('room', RoomAPIView.as_view()),
+    path('users/<int:id>/delete/', UserDestroyAPIView.as_view(), name='user-destroy'),
+    path('appointments/<int:id>/delete/', AppointmentDestroyAPIView.as_view(), name='appointment-destroy'),
+    path('health/<int:id>/delete/', HealthDestroyAPIView.as_view(), name='health-destroy'),
+    path('medical-technology/<int:id>/delete/', MedicalTechnologyDestroyAPIView.as_view(),
+         name='medical-technology-destroy'),
+    path('technology-appointment/<int:id>/delete/', TechnologyAppointmentDestroyAPIView.as_view(),
+         name='technology-appointment-destroy'),
+    path('rooms/<int:id>/delete/', RoomDestroyAPIView.as_view(), name='room-destroy'),
+
+    path('', frontend),
+
+]
 
