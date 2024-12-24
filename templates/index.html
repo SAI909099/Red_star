@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Medical Service</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header>
+    <h1>Medical Service</h1>
+    <nav>
+      <ul>
+        <li><a href="#login">Login</a></li>
+        <li><a href="#register">Register</a></li>
+        <li><a href="#appointments">Appointments</a></li>
+        <li><a href="#rooms">Room Status</a></li>
+      </ul>
+    </nav>
+  </header>
+  <main>
+    <section id="login">
+      <h2>Login</h2>
+      <form action="http://127.0.0.1:8000/login/" method="POST">
+        <label for="email">Email:</label>
+        <input type="email" id="email" name="email" required>
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" required>
+        <button type="submit">Login</button>
+      </form>
+    </section>
+
+    <section id="register">
+      <h2>Register</h2>
+      <form action="http://127.0.0.1:8000/register/" method="POST">
+        <label for="first_name">First Name:</label>
+        <input type="text" id="first_name" name="first_name" required>
+        <label for="last_name">Last Name:</label>
+        <input type="text" id="last_name" name="last_name" required>
+        <label for="email">Email:</label>
+        <input type="email" id="email" name="email" required>
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" required>
+        <button type="submit">Register</button>
+      </form>
+    </section>
+
+    <section id="appointments">
+      <h2>Book an Appointment</h2>
+      <form action="http://127.0.0.1:8000/appointments/" method="POST">
+        <label for="technology">Select Technology:</label>
+        <select id="technology" name="technology">
+          <option value="mrt">MRT</option>
+          <option value="ct">CT Scan</option>
+        </select>
+        <label for="date">Appointment Date:</label>
+        <input type="date" id="date" name="date" required>
+        <button type="submit">Book</button>
+      </form>
+    </section>
+
+    <section id="rooms">
+      <h2>Room Status</h2>
+      <ul>
+        <li>Room 101: <span class="status occupied">Occupied</span></li>
+        <li>Room 102: <span class="status available">Available</span></li>
+      </ul>
+    </section>
+  </main>
+  <footer>
+    <p>&copy; 2024 Medical Service</p>
+  </footer>
+</body>
+</html>

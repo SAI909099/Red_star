@@ -76,3 +76,44 @@ class LoginUserModelSerializer(Serializer):
 class LoginSerializer(Serializer):
     email = EmailField()
     verification_code = CharField(write_only=True)
+
+from rest_framework import serializers, viewsets
+from rest_framework.routers import DefaultRouter
+from django.urls import path, include
+from .models import User, Appointments, Health, MedicalTechnology, TechnologyAppointment, Room
+
+# Seriali
+class AppointmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Appointments
+        fields = '__all__'
+
+class HealthSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Health
+        fields = '__all__'
+
+class MedicalTechnologySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MedicalTechnology
+        fields = '__all__'
+
+class TechnologyAppointmentSerializer(serializers.ModelSerializer):
+    def validate(self, data):
+        # Check if the time slot is already booked
+        if TechnologyAppointment.objects.filter(
+            technology=data['technology'],
+            appointment_date=data['appointment_date'],
+            appointment_time=data['appointment_time']
+        ).exists():
+            raise serializers.ValidationError("This time slot is already booked.")
+        return data
+
+    class Meta:
+        model = TechnologyAppointment
+        fields = '__all__'
+
+class RoomSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Room
+        fields = '__all__'

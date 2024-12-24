@@ -9,11 +9,14 @@ from rest_framework import status
 from rest_framework.generics import ListAPIView, ListCreateAPIView, GenericAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.views import APIView
+from rest_framework.viewsets import ModelViewSet
 from rest_framework_simplejwt.exceptions import AuthenticationFailed
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from apps.models import User
-from apps.serializers import UserModelSerializer, RegisterSerializer, LoginUserModelSerializer, LoginSerializer
+from apps.models import User, Appointments, Health, MedicalTechnology, TechnologyAppointment, Room
+from apps.serializers import UserModelSerializer, RegisterSerializer, LoginUserModelSerializer, LoginSerializer, \
+    AppointmentSerializer, HealthSerializer, MedicalTechnologySerializer, TechnologyAppointmentSerializer, \
+    RoomSerializer
 from apps.tasks import send_verification_email
 
 
@@ -99,3 +102,23 @@ class ActivateUserView(APIView):
             user.save()
             return Response({"message": "User successfully verified!"})
         raise AuthenticationFailed('The link is invalid or expired.')
+
+class AppointmentViewSet(ModelViewSet):
+    queryset = Appointments.objects.all()
+    serializer_class = AppointmentSerializer
+
+class HealthViewSet(ModelViewSet):
+    queryset = Health.objects.all()
+    serializer_class = HealthSerializer
+
+class MedicalTechnologyViewSet(ModelViewSet):
+    queryset = MedicalTechnology.objects.all()
+    serializer_class = MedicalTechnologySerializer
+
+class TechnologyAppointmentViewSet(ModelViewSet):
+    queryset = TechnologyAppointment.objects.all()
+    serializer_class = TechnologyAppointmentSerializer
+
+class RoomViewSet(ModelViewSet):
+    queryset = Room.objects.all()
+    serializer_class = RoomSerializer
